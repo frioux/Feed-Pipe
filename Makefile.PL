@@ -11,7 +11,6 @@ homepage 'http://github.com/veselosky/Feed-Pipe';
 # For Feed::Pipe
 requires 'Data::UUID';
 requires 'DateTime::Format::HTTP';
-requires 'Log::Any', '0.05';
 requires 'Moo', '2';
 requires 'XML::Feed', '0.43';
 requires 'XML::Atom', '0.37';

@@ -2,7 +2,6 @@ package Feed::Pipe;
 
 # Housekeeping
 use Moo;
-use Log::Any;
 
 our $VERSION = '1.003';
 
@@ -60,9 +59,6 @@ has _entries => (
   default => sub { [] },
 );
 
-has _logger => (is => 'ro', lazy => 1, builder => '_build__logger');
-sub _build__logger { Log::Any->get_logger(category => __PACKAGE__); }
-
 #--------------------------------------------------------------------
 # FILTER METHODS
 #--------------------------------------------------------------------
@@ -74,24 +70,18 @@ sub cat {
   my ($proto, @feed_urls) = @_;
   my $self = ref($proto) ? $proto : $proto->new();
 
-  #$self->_logger->debugf('cat: %s', \@feed_urls);
-
   foreach my $f (@feed_urls) {
     if (ref($f) eq 'Feed::Pipe') {
-      $self->_logger->debug("Adding a Feed::Pipe");
       $self->_push($f->entries);
 
     } elsif (ref($f) eq 'XML::Atom::Feed') {
       $self->_add_atom($f);
-      $self->_logger->debug("Adding a XML::Atom::Feed");
 
     } elsif (ref($f) =~ /^XML::Feed/) {
-      $self->_logger->debug("Adding a XML::Feed");
       $f = $self->_xf_to_atom($f);
       $self->_add_atom($f);
 
     } else {
-      $self->_logger->debug("Using XML::Feed for parsing");
       my $feed = XML::Feed->parse($f);
       $feed = $self->_xf_to_atom($feed);
       $self->_add_atom($feed);
@@ -141,8 +131,6 @@ sub map {
   my ($self, $sub) = @_;
   unless ($sub) {
     my ($package, $file, $line) = caller();
-    $self->_logger->warning('Ignoring map() without a code reference at %s:%s',
-      $file, $line);
     warn
       sprintf('Ignoring map() without a code reference at %s:%s', $file, $line);
     return $self;
@@ -202,11 +190,7 @@ sub _add_atom {
   for my $node ($feed->elem->childNodes) {
     if ($node->nodeName eq 'entry') {
 
-      #$self->_logger->debug("Unbinding node ".$node->nodeName);
       $node->unbindNode();
-    } else {
-
-      #$self->_logger->debug("Keeping node ".$node->nodeName);
     }
   }
   $self->_push(map { $_->source($feed) unless $_->source; $_ } @entries);
