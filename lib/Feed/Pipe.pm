@@ -1,4 +1,5 @@
 package Feed::Pipe;
+
 # Housekeeping
 use Moose;
 use Feed::Pipe::Types qw(ArrayRef AtomEntry AtomFeed Datetime Str Uri);
@@ -20,10 +21,11 @@ $XML::Atom::ForceUnicode = 1;
 #--------------------------------------------------------------------
 
 has id => (is => 'rw', isa => Str, lazy_build => 1);
-sub _build_id { 
-    require Data::UUID; 
-    my $gen = Data::UUID->new;
-    return 'urn:'.$gen->to_string($gen->create()); 
+
+sub _build_id {
+  require Data::UUID;
+  my $gen = Data::UUID->new;
+  return 'urn:' . $gen->to_string($gen->create());
 }
 
 has title => (is => 'rw', isa => Str, default => "Combined Feed");
@@ -31,138 +33,143 @@ has title => (is => 'rw', isa => Str, default => "Combined Feed");
 has updated => (is => 'rw', isa => Datetime, lazy_build => 1, coerce => 1);
 sub _build_updated { DateTime->now() }
 
-has _entries => 
-    ( is => 'rw'
-    , traits => ['Array']
-    , isa => ArrayRef[AtomEntry]
-    , default => sub {[]}
-    , handles =>
-        { count => 'count'
-        , entries => 'elements'
-        , _clear => 'clear'
-        , _delete => 'delete'
-        , _entry_at => 'accessor'
-        , _first => 'first'
-        , _get => 'get'
-        , _grep => 'grep'
-        , _insert => 'insert'
-        , _map => 'map'
-        , _pop => 'pop'
-        , _push => 'push'
-        , _shift => 'shift'
-        , _shuffle => 'shuffle'
-        , _sort_in_place => 'sort_in_place'
-        # man page lies: does NOT work identically to Perl's splice
-        # , _splice => 'splice'
-        , _unshift => 'unshift'
-        }
-    );
+has _entries => (
+  is      => 'rw',
+  traits  => ['Array'],
+  isa     => ArrayRef [AtomEntry],
+  default => sub { [] },
+  handles => {
+    count          => 'count',
+    entries        => 'elements',
+    _clear         => 'clear',
+    _delete        => 'delete',
+    _entry_at      => 'accessor',
+    _first         => 'first',
+    _get           => 'get',
+    _grep          => 'grep',
+    _insert        => 'insert',
+    _map           => 'map',
+    _pop           => 'pop',
+    _push          => 'push',
+    _shift         => 'shift',
+    _shuffle       => 'shuffle',
+    _sort_in_place => 'sort_in_place',
 
-has _logger => (is  => 'ro', lazy_build => 1);
-sub _build__logger {Log::Any->get_logger(category => __PACKAGE__);}
+    # man page lies: does NOT work identically to Perl's splice
+    # , _splice => 'splice'
+    _unshift => 'unshift'
+  });
+
+has _logger => (is => 'ro', lazy_build => 1);
+sub _build__logger { Log::Any->get_logger(category => __PACKAGE__); }
 
 #--------------------------------------------------------------------
 # FILTER METHODS
 #--------------------------------------------------------------------
 
-# FIXME: I really want this to add a <source> element to each entry so it can 
+# FIXME: I really want this to add a <source> element to each entry so it can
 # be traced back to its origin. And to be much more clever. And not to rely
 # on XML::Feed.
 sub cat {
-    my ($proto, @feed_urls) = @_;
-    my $self = ref($proto) ? $proto : $proto->new();
-    #$self->_logger->debugf('cat: %s', \@feed_urls);
-    
-    foreach my $f (@feed_urls) {
-        if (ref($f) eq 'Feed::Pipe') {
-            $self->_logger->debug("Adding a Feed::Pipe");
-            $self->_push($f->entries);
-            
-        } elsif ( ref($f) eq 'XML::Atom::Feed') {
-            $self->_add_atom($f);
-            $self->_logger->debug("Adding a XML::Atom::Feed");
-            
-        } elsif (ref($f) =~ /^XML::Feed/) {
-            $self->_logger->debug("Adding a XML::Feed");
-            $f = $self->_xf_to_atom($f);
-            $self->_add_atom($f);
-            
-        } else {
-            $self->_logger->debug("Using XML::Feed for parsing");
-            my $feed = XML::Feed->parse($f);
-            $feed = $self->_xf_to_atom($feed);
-            $self->_add_atom($feed);
-        }
+  my ($proto, @feed_urls) = @_;
+  my $self = ref($proto) ? $proto : $proto->new();
+
+  #$self->_logger->debugf('cat: %s', \@feed_urls);
+
+  foreach my $f (@feed_urls) {
+    if (ref($f) eq 'Feed::Pipe') {
+      $self->_logger->debug("Adding a Feed::Pipe");
+      $self->_push($f->entries);
+
+    } elsif (ref($f) eq 'XML::Atom::Feed') {
+      $self->_add_atom($f);
+      $self->_logger->debug("Adding a XML::Atom::Feed");
+
+    } elsif (ref($f) =~ /^XML::Feed/) {
+      $self->_logger->debug("Adding a XML::Feed");
+      $f = $self->_xf_to_atom($f);
+      $self->_add_atom($f);
+
+    } else {
+      $self->_logger->debug("Using XML::Feed for parsing");
+      my $feed = XML::Feed->parse($f);
+      $feed = $self->_xf_to_atom($feed);
+      $self->_add_atom($feed);
     }
-    return $self; # ALWAYS return $self for chaining!
+  }
+  return $self;    # ALWAYS return $self for chaining!
 }
 
-
 sub sort {
-    my ($self, $sub) = @_;
-    $sub ||= sub { ($_[1]->updated||$_[1]->published) cmp ($_[0]->updated||$_[0]->published) };
-    $self->_sort_in_place($sub);
-    return $self; # ALWAYS return $self for chaining!
+  my ($self, $sub) = @_;
+  $sub ||= sub {
+    ($_[1]->updated || $_[1]->published)
+      cmp($_[0]->updated || $_[0]->published)
+  };
+  $self->_sort_in_place($sub);
+  return $self;    # ALWAYS return $self for chaining!
 }
 
 sub reverse {
-    my ($self) = @_;
-    $self->_entries([reverse $self->entries]);
-    return $self; # ALWAYS return $self for chaining!
+  my ($self) = @_;
+  $self->_entries([reverse $self->entries]);
+  return $self;    # ALWAYS return $self for chaining!
 }
 
 sub head {
-    my ($self, $limit) = @_;
-    $limit ||= 10;
-    $self->_entries([splice(@{$self->_entries},0,$limit)]);
-    return $self; # ALWAYS return $self for chaining!
+  my ($self, $limit) = @_;
+  $limit ||= 10;
+  $self->_entries([splice(@{$self->_entries}, 0, $limit)]);
+  return $self;    # ALWAYS return $self for chaining!
 }
 
 sub tail {
-    my ($self, $limit) = @_;
-    $limit ||= 10;
-    $self->_entries([splice(@{$self->_entries},-$limit)]);
-    return $self; # ALWAYS return $self for chaining! 
+  my ($self, $limit) = @_;
+  $limit ||= 10;
+  $self->_entries([splice(@{$self->_entries}, -$limit)]);
+  return $self;    # ALWAYS return $self for chaining!
 }
 
 sub grep {
-    my ($self, $sub) = @_;
-    $sub ||= sub { $_->content||$_->summary };
-    $self->_entries([$self->_grep($sub)]);
-    return $self; # ALWAYS return $self for chaining!
+  my ($self, $sub) = @_;
+  $sub ||= sub { $_->content || $_->summary };
+  $self->_entries([$self->_grep($sub)]);
+  return $self;    # ALWAYS return $self for chaining!
 }
 
 sub map {
-    my ($self, $sub) = @_;
-    unless ($sub) {
-        my ($package, $file, $line) = caller();
-        $self->_logger->warning('Ignoring map() without a code reference at %s:%s',$file,$line);
-        warn sprintf('Ignoring map() without a code reference at %s:%s',$file,$line);
-        return $self;
-    }
-    $self->_entries([$self->_map($sub)]);
-    return $self; # ALWAYS return $self for chaining!
+  my ($self, $sub) = @_;
+  unless ($sub) {
+    my ($package, $file, $line) = caller();
+    $self->_logger->warning('Ignoring map() without a code reference at %s:%s',
+      $file, $line);
+    warn
+      sprintf('Ignoring map() without a code reference at %s:%s', $file, $line);
+    return $self;
+  }
+  $self->_entries([$self->_map($sub)]);
+  return $self;    # ALWAYS return $self for chaining!
 }
-
 
 #--------------------------------------------------------------------
 # OTHER METHODS
 #--------------------------------------------------------------------
 sub as_atom_obj {
-    my ($self) = @_;
-    my $feed = XML::Atom::Feed->new;
-    # FIXME: Add support for (at least) the following elements: author category
-    # contributor generator icon link logo rights subtitle
-    $feed->title($self->title);
-    $feed->id($self->id);
-    $feed->updated(DateTime::Format::HTTP->format_isoz($self->updated));
-    $feed->add_entry($_) for $self->entries;
-    return $feed;
+  my ($self) = @_;
+  my $feed = XML::Atom::Feed->new;
+
+  # FIXME: Add support for (at least) the following elements: author category
+  # contributor generator icon link logo rights subtitle
+  $feed->title($self->title);
+  $feed->id($self->id);
+  $feed->updated(DateTime::Format::HTTP->format_isoz($self->updated));
+  $feed->add_entry($_) for $self->entries;
+  return $feed;
 }
 
 sub as_xml {
-    my ($self) = @_;
-    return $self->as_atom_obj->as_xml;
+  my ($self) = @_;
+  return $self->as_atom_obj->as_xml;
 }
 
 #--------------------------------------------------------------------
@@ -170,37 +177,40 @@ sub as_xml {
 #--------------------------------------------------------------------
 # This code stolen from XML::Feed::convert and mangled slightly.
 sub _xf_to_atom {
-    my ($self, $feed) = @_;
-    return $feed->{atom} if $feed->format eq 'Atom';
-    
-    my $new = XML::Feed->new('Atom');
-    for my $field (qw( title link self_link description language author copyright modified generator )) {
-        my $val = $feed->$field();
-        next unless defined $val;
-        $new->$field($val);
-    }
-    for my $entry ($feed->entries) {
-        $new->add_entry($entry->convert('Atom'));
-    }
-    return $new->{atom};
+  my ($self, $feed) = @_;
+  return $feed->{atom} if $feed->format eq 'Atom';
+
+  my $new = XML::Feed->new('Atom');
+  for my $field (
+    qw( title link self_link description language author copyright modified generator )
+    ) {
+    my $val = $feed->$field();
+    next unless defined $val;
+    $new->$field($val);
+  }
+  for my $entry ($feed->entries) {
+    $new->add_entry($entry->convert('Atom'));
+  }
+  return $new->{atom};
 }
 
 sub _add_atom {
-    my ($self, $feed) = @_;
-    my @entries = $feed->entries; # This clones the entry nodes.
+  my ($self, $feed) = @_;
+  my @entries = $feed->entries;    # This clones the entry nodes.
 
-    # Clean out the entries so we can use $feed as source
-    for my $node ($feed->elem->childNodes) {
-        if ($node->nodeName eq 'entry') {
-            #$self->_logger->debug("Unbinding node ".$node->nodeName);
-            $node->unbindNode();
-        } else {
-            #$self->_logger->debug("Keeping node ".$node->nodeName);
-        }
+  # Clean out the entries so we can use $feed as source
+  for my $node ($feed->elem->childNodes) {
+    if ($node->nodeName eq 'entry') {
+
+      #$self->_logger->debug("Unbinding node ".$node->nodeName);
+      $node->unbindNode();
+    } else {
+
+      #$self->_logger->debug("Keeping node ".$node->nodeName);
     }
-    $self->_push( map {$_->source($feed) unless $_->source; $_ } @entries);
+  }
+  $self->_push(map { $_->source($feed) unless $_->source; $_ } @entries);
 }
-
 
 no Moose;
 __PACKAGE__->meta->make_immutable;

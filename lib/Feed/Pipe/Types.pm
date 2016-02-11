@@ -2,12 +2,11 @@ package Feed::Pipe::Types;
 use strict;
 use base 'MooseX::Types::Combine';
 __PACKAGE__->provide_types_from(qw(
-    MooseX::Types::Moose 
+    MooseX::Types::Moose
     Feed::Pipe::Typedefs
 ));
 
 our $VERSION = '1.003';
-
 
 1;
 __END__
