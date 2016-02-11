@@ -12,18 +12,26 @@ use XML::Atom::Feed;
 $XML::Atom::DefaultVersion = 1.0;
 $XML::Atom::ForceUnicode = 1;
 
-has id => (is => 'rw', lazy => 1, builder => '_build_id');
+has id => (
+  is => 'rw',
+  lazy => 1,
+  builder => sub {
+    require Data::UUID;
+    my $gen = Data::UUID->new;
+    return 'urn:' . $gen->to_string($gen->create());
+  },
+);
 
-sub _build_id {
-  require Data::UUID;
-  my $gen = Data::UUID->new;
-  return 'urn:' . $gen->to_string($gen->create());
-}
+has title => (
+  is => 'rw',
+  default => "Combined Feed",
+);
 
-has title => (is => 'rw', default => "Combined Feed");
-
-has updated => (is => 'rw', lazy => 1, builder => '_build_updated');
-sub _build_updated { DateTime->now() }
+has updated => (
+  is => 'rw',
+  lazy => 1,
+  builder => sub { DateTime->now() },
+);
 
 sub count { scalar @{shift->_entries} }
 sub entries { @{shift->_entries} }
