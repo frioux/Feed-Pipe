@@ -1,11 +1,9 @@
 package Feed::Pipe;
 
-# Housekeeping
 use Moo;
 
 our $VERSION = '1.003';
 
-# Code
 use DateTime;
 use DateTime::Format::HTTP;
 use XML::Feed;
@@ -13,10 +11,6 @@ use XML::Atom;
 use XML::Atom::Feed;
 $XML::Atom::DefaultVersion = 1.0;
 $XML::Atom::ForceUnicode = 1;
-
-#--------------------------------------------------------------------
-# ATTRIBUTES
-#--------------------------------------------------------------------
 
 has id => (is => 'rw', lazy => 1, builder => '_build_id');
 
@@ -58,10 +52,6 @@ has _entries => (
   is      => 'rw',
   default => sub { [] },
 );
-
-#--------------------------------------------------------------------
-# FILTER METHODS
-#--------------------------------------------------------------------
 
 # FIXME: I really want this to add a <source> element to each entry so it can
 # be traced back to its origin. And to be much more clever. And not to rely
@@ -139,9 +129,6 @@ sub map {
   return $self;    # ALWAYS return $self for chaining!
 }
 
-#--------------------------------------------------------------------
-# OTHER METHODS
-#--------------------------------------------------------------------
 sub as_atom_obj {
   my ($self) = @_;
   my $feed = XML::Atom::Feed->new;
@@ -160,9 +147,6 @@ sub as_xml {
   return $self->as_atom_obj->as_xml;
 }
 
-#--------------------------------------------------------------------
-# PRIVATE METHODS
-#--------------------------------------------------------------------
 # This code stolen from XML::Feed::convert and mangled slightly.
 sub _xf_to_atom {
   my ($self, $feed) = @_;
