@@ -1,8 +1,7 @@
 package Feed::Pipe;
 
 # Housekeeping
-use Moose;
-use Feed::Pipe::Types qw(ArrayRef AtomEntry AtomFeed Datetime Str Uri);
+use Moo;
 use Log::Any;
 
 our $VERSION = '1.003';
@@ -20,7 +19,7 @@ $XML::Atom::ForceUnicode = 1;
 # ATTRIBUTES
 #--------------------------------------------------------------------
 
-has id => (is => 'rw', isa => Str, lazy_build => 1);
+has id => (is => 'rw', lazy => 1, builder => '_build_id');
 
 sub _build_id {
   require Data::UUID;
@@ -28,39 +27,40 @@ sub _build_id {
   return 'urn:' . $gen->to_string($gen->create());
 }
 
-has title => (is => 'rw', isa => Str, default => "Combined Feed");
+has title => (is => 'rw', default => "Combined Feed");
 
-has updated => (is => 'rw', isa => Datetime, lazy_build => 1, coerce => 1);
+has updated => (is => 'rw', lazy => 1, builder => '_build_updated');
 sub _build_updated { DateTime->now() }
+
+sub count { scalar @{shift->_entries} }
+sub entries { @{shift->_entries} }
+sub _entry_at { shift->_entries->[shift] }
+sub _grep {
+  my ($self, $sub) = @_;
+
+  grep $sub->($_), @{$self->_entries}
+}
+
+sub _map {
+  my ($self, $sub) = @_;
+
+  map $sub->($_), @{$self->_entries}
+}
+
+sub _push { push @{shift->_entries}, @_ }
+
+sub _sort_in_place {
+  my ($self, $cmp) = @_;
+
+  @{$self->_entries} = (sort { $cmp->($a, $b) } @{$self->_entries});
+}
 
 has _entries => (
   is      => 'rw',
-  traits  => ['Array'],
-  isa     => ArrayRef [AtomEntry],
   default => sub { [] },
-  handles => {
-    count          => 'count',
-    entries        => 'elements',
-    _clear         => 'clear',
-    _delete        => 'delete',
-    _entry_at      => 'accessor',
-    _first         => 'first',
-    _get           => 'get',
-    _grep          => 'grep',
-    _insert        => 'insert',
-    _map           => 'map',
-    _pop           => 'pop',
-    _push          => 'push',
-    _shift         => 'shift',
-    _shuffle       => 'shuffle',
-    _sort_in_place => 'sort_in_place',
+);
 
-    # man page lies: does NOT work identically to Perl's splice
-    # , _splice => 'splice'
-    _unshift => 'unshift'
-  });
-
-has _logger => (is => 'ro', lazy_build => 1);
+has _logger => (is => 'ro', lazy => 1, builder => '_build__logger');
 sub _build__logger { Log::Any->get_logger(category => __PACKAGE__); }
 
 #--------------------------------------------------------------------
@@ -212,8 +212,6 @@ sub _add_atom {
   $self->_push(map { $_->source($feed) unless $_->source; $_ } @entries);
 }
 
-no Moose;
-__PACKAGE__->meta->make_immutable;
 1;
 __END__
 
