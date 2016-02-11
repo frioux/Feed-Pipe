@@ -1,4 +1,7 @@
-Revision history for Feed-Pipe
+Revision history for {{$dist->name}}
+
+{{$NEXT}}
+ - Convert to Moo
 
 1.003   2009-12-29
  - Entries now get a source element injected when they are added
