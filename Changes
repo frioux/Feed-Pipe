@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.004     2016-02-15 02:03:45-08:00 America/Los_Angeles
  - Convert to Moo
 
 1.003   2009-12-29
